@@ -34,7 +34,7 @@ Public Class orderSSV
             .fldrequestname = txtTaxPayerName.Text.Trim()
             .fldssnno = txtSocialSecurityNumber.Text.Trim()
             .fldstatus = "p"
-            .fldPdf = ssa89File.PostedFile.FileName
+            .fldPdf = System.IO.Path.GetFileName(savedFilePath)
             .fldTaxyear2020 = Nothing
             .fldTaxyear2021 = Nothing
             .fldTaxyear2022 = Nothing
@@ -44,9 +44,9 @@ Public Class orderSSV
             .fldlisttype = 0
             .FormType = 0
             .fldordernumber = 0
-            .fldDOB = If(String.IsNullOrWhiteSpace(txtDob.Text), Nothing, txtDob.Text.Trim())
+            .fldDOB = If(String.IsNullOrEmpty(txtDob.Text), Nothing, txtDob.Text.Trim())
             .fldSex = gender
-
+            .fldordertype = "SSV"
             OrderServices.CreateNewOrder(o)
             If o.fldordernumber < 1 Then
                 lblMessage.Text = "Failed to save order. " & DataHelper.LastErrorMessage

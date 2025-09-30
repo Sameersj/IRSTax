@@ -9,110 +9,6 @@ Public Class order_4506
     Protected Sub Page_Load(ByVal sender As Object, ByVal e As System.EventArgs) Handles Me.Load
 
     End Sub
-    Public Shared Function InsertOrder(
-        ByVal newListId As Integer,
-        ByVal listType As Integer,
-        ByVal customerId As Integer,
-        ByVal requestName As String,
-        ByVal ssnNumber As String,
-        ByVal taxYear2024 As String,
-        ByVal taxYear2023 As String,
-        ByVal taxYear2022 As String,
-        ByVal taxYear2021 As String,
-        ByVal taxYear2020 As String,
-        ByVal typeOfForm As String,
-        ByVal email As String,
-        ByVal fax As String,
-        ByVal faxNo As String,
-        ByVal orderDate As DateTime,
-        ByVal companyId As Integer,
-        ByVal loanNumber As String,
-        ByVal pdfFile As String,
-        Optional dob As String = "",
-        Optional gender As String = ""
-        )
-
-        Dim query As String = "
-            INSERT INTO tblorder
-            (
-                fldListid,
-                fldlisttype,
-                fldCustomerID,
-                fldRequestName,
-                fldssnno,
-                fldTaxyear2024,
-                fldTaxyear2023,
-                fldTaxyear2022,
-                fldTaxYear2021,
-                fldTaxYear2020,
-                fldtypeofform,
-                fldemail,
-                fldfax,
-                fldfaxno,
-                fldStatus,
-                fldBillingStatus,
-                fldOrderDate,
-                fldCompanyID,
-                fldLoanNumber,
-                fldPdf,
-                fldDOB,
-                fldSex
-            )
-            VALUES
-            (
-                @NewListId,
-                @ListType,
-                @CustomerID,
-                @RequestName,
-                @SSNNumber,
-                @TaxYear2024,
-                @TaxYear2023,
-                @TaxYear2022,
-                @TaxYear2021,
-                @TaxYear2020,
-                @TypeOfForm,
-                @Email,
-                @Fax,
-                @FaxNo,
-                'p',
-                0,
-                @OrderDate,
-                @CompanyID,
-                @LoanNumber,
-                @PDFFile,
-                @DOB,
-                @Sex
-            )"
-        Dim connStr As String = ConfigurationManager.ConnectionStrings("IRSConnection").ConnectionString
-        Using connection As New SqlConnection(connStr)
-            Using command As New SqlCommand(query, connection)
-                command.Parameters.AddWithValue("@NewListId", newListId)
-                command.Parameters.AddWithValue("@ListType", listType)
-                command.Parameters.AddWithValue("@CustomerID", customerId)
-                command.Parameters.AddWithValue("@RequestName", requestName)
-                command.Parameters.AddWithValue("@SSNNumber", ssnNumber)
-                command.Parameters.AddWithValue("@TaxYear2024", If(taxYear2024, DBNull.Value))
-                command.Parameters.AddWithValue("@TaxYear2023", If(taxYear2023, DBNull.Value))
-                command.Parameters.AddWithValue("@TaxYear2022", If(taxYear2022, DBNull.Value))
-                command.Parameters.AddWithValue("@TaxYear2021", If(taxYear2021, DBNull.Value))
-                command.Parameters.AddWithValue("@TaxYear2020", If(taxYear2020, DBNull.Value))
-                command.Parameters.AddWithValue("@TypeOfForm", typeOfForm)
-                command.Parameters.AddWithValue("@Email", email)
-                command.Parameters.AddWithValue("@Fax", fax)
-                command.Parameters.AddWithValue("@FaxNo", faxNo)
-                command.Parameters.AddWithValue("@OrderDate", orderDate)
-                command.Parameters.AddWithValue("@CompanyID", companyId)
-                command.Parameters.AddWithValue("@LoanNumber", loanNumber)
-                command.Parameters.AddWithValue("@PDFFile", pdfFile)
-                command.Parameters.AddWithValue("@DOB", dob)
-                command.Parameters.AddWithValue("@Sex", gender)
-
-                connection.Open()
-                command.ExecuteNonQuery()
-            End Using
-        End Using
-    End Function
-
     Public Shared Function UploadFile(file As HttpPostedFile, uploadFolderPath As String) As String
         If file Is Nothing OrElse file.ContentLength = 0 Then
             Return Nothing
@@ -125,7 +21,7 @@ Public Class order_4506
             End If
 
             Dim extension As String = Path.GetExtension(file.FileName)
-            Dim newFileName As String = DateTime.Now.ToString("yyyyMMddHHmmss") & "_" & Guid.NewGuid().ToString() & extension
+            Dim newFileName As String = DateTime.Now.ToString("yyyyMMddHHmmss").ToString() & extension
 
 
             Dim filePath As String = Path.Combine(serverPath, newFileName)
@@ -144,7 +40,7 @@ Public Class order_4506
         If txtSocialSecurityNumber.Text.Trim = "" Then msg &= "Please enter SSN.<br>"
         If Me.txtLoanNumber.Visible AndAlso txtLoanNumber.Text.Trim = "" Then msg &= "Please enter Loan Number.<br>"
         If SelectedIDs(Me.chkTaxyears).Count = 0 Then msg &= "Please select at least one year to order.<br>"
-        If Me.rdoTaxForms.SelectedItem Is Nothing Then msg &= "Please select at least one form type.<br>"
+        If Me.chkTaxForms.Items.Count = 0 Then msg &= "Please select at least one form type.<br>"
         If Not fuform4506C.HasFile Then msg &= "Please attach a PDF file.<br>"
 
         If msg = "" Then
@@ -154,27 +50,46 @@ Public Class order_4506
             Return False
         End If
     End Function
-    Private Function GetTypeOfFormsSelected() As Generic.List(Of TypeOfForm)
-        Dim typeOfForms As New Generic.List(Of TypeOfForm)
-        Select Case Me.rdoTaxForms.SelectedValue
-            Case "1040"
-                typeOfForms.Add(TypeOfForm.S_1040)
-            Case "1040/W2"
-                typeOfForms.Add(TypeOfForm.S_1040)
-                typeOfForms.Add(TypeOfForm.S_W2)
-            Case "1120"
-                typeOfForms.Add(TypeOfForm.S_1120)
-            Case "1065"
-                typeOfForms.Add(TypeOfForm.S_1065)
-            Case "W-2"
-                typeOfForms.Add(TypeOfForm.S_W2)
-            Case "1099"
-                typeOfForms.Add(TypeOfForm.S_1099)
-            Case Else
-                Throw New Exception("Form type " & rdoTaxForms.SelectedValue & " is not a valid form type.")
-        End Select
-        Return typeOfForms
+    Private Function GetTypeOfFormsSelected() As Dictionary(Of String, List(Of TypeOfForm))
+        Dim typeOfFormsMap As New Dictionary(Of String, List(Of TypeOfForm))()
+
+        For Each item As ListItem In chkTaxForms.Items
+            If item.Selected Then
+                Dim forms As New List(Of TypeOfForm)()
+
+                Select Case item.Value
+                    Case "1040"
+                        forms.Add(TypeOfForm.S_1040)
+                    Case "1040R"
+                        forms.Add(TypeOfForm.S_1040)
+                        forms.Add(TypeOfForm.S_1040)
+                    Case "AT"
+                        forms.Add(TypeOfForm.S_1040)
+                    Case "ROA"
+                        forms.Add(TypeOfForm.S_1040)
+                    Case "1040/W2"
+                        forms.Add(TypeOfForm.S_1040)
+                        forms.Add(TypeOfForm.S_W2)
+                    Case "1120"
+                        forms.Add(TypeOfForm.S_1120)
+                    Case "1065"
+                        forms.Add(TypeOfForm.S_1065)
+                    Case "W-2"
+                        forms.Add(TypeOfForm.S_W2)
+                    Case "1099"
+                        forms.Add(TypeOfForm.S_1099)
+                    Case Else
+                        Throw New Exception("Form type " & item.Value & " is not a valid form type.")
+                End Select
+
+                typeOfFormsMap.Add(item.Value, forms)
+            End If
+        Next
+
+        Return typeOfFormsMap
     End Function
+
+
     Protected Sub btnSubmit_Click(ByVal sender As Object, ByVal e As System.EventArgs) Handles btnSubmit.Click
         If Not ValidateForm() Then Return
         Dim savedFilePath As String = Nothing
@@ -184,51 +99,73 @@ Public Class order_4506
         Dim years As Generic.List(Of Integer) = SelectedIDs(chkTaxyears)
 
         Dim resultOrderIDs As New Generic.List(Of Integer)
-        Dim typeOfForms As Generic.List(Of TypeOfForm) = GetTypeOfFormsSelected()
-        Dim o As New Orders.Order
-        With o
-            .fldCompanyID = StoreInstance.GetCustomerId()
-            .fldcustomeriD = StoreInstance.GetCustomerId()
-            .fldemail = "OFF"
-            .fldfax = "OFF"
-            .fldfaxno = ""
-            .fldListid = 0
-            .fldlisttype = 1
-            .fldLoanNumber = Me.txtLoanNumber.Text.Trim
-            .fldOrderdate = Now.ToShortDateString
-            .fldrequestname = txtTaxPayerName.Text.Trim()
-            .fldssnno = txtSocialSecurityNumber.Text.Trim()
-            .fldstatus = "p"
-            .fldPdf = fuform4506C.PostedFile.FileName
-            For Each Year As Integer In years
-                Select Case Year
-                    Case 2020 : .fldTaxyear2020 = True
-                    Case 2021 : .fldTaxyear2021 = True
-                    Case 2022 : .fldTaxyear2022 = True
-                    Case 2023 : .fldTaxyear2023 = True
-                    Case 2024 : .fldTaxyear2024 = True
-                End Select
+        Dim typeOfForms = GetTypeOfFormsSelected()
+        Dim loopIndex As Integer = 1
+
+        For Each kvp In typeOfForms   ' kvp.Key = checkbox value, kvp.Value = List(Of TypeOfForm)
+            For Each formType As TypeOfForm In kvp.Value
+                Dim o As New Orders.Order
+                With o
+                    .fldCompanyID = StoreInstance.GetCustomerId()
+                    .fldcustomeriD = StoreInstance.GetCustomerId()
+                    .fldemail = "OFF"
+                    .fldfax = "OFF"
+                    .fldfaxno = ""
+                    .fldListid = 0
+                    .fldlisttype = 1
+                    .fldLoanNumber = Me.txtLoanNumber.Text.Trim
+                    .fldOrderdate = Now.ToShortDateString
+                    .fldrequestname = txtTaxPayerName.Text.Trim()
+                    .fldssnno = txtSocialSecurityNumber.Text.Trim()
+                    .fldstatus = "p"
+                    .fldPdf = System.IO.Path.GetFileName(savedFilePath)
+
+                    ' assign tax years
+                    For Each Year As Integer In years
+                        Select Case Year
+                            Case 2020 : .fldTaxyear2020 = True
+                            Case 2021 : .fldTaxyear2021 = True
+                            Case 2022 : .fldTaxyear2022 = True
+                            Case 2023 : .fldTaxyear2023 = True
+                            Case 2024 : .fldTaxyear2024 = True
+                        End Select
+                    Next
+
+                    ' form type & list info
+                    Dim listType As ListTypeCodeType = ListServices.GetListTypeFromFormType(formType)
+                    Dim listID As Integer = ListServices.GetCurrentListID(listType)
+
+                    .fldListid = listID
+                    .fldlisttype = CInt(listType)
+                    .FormType = formType
+                    .fldordernumber = 0
+                    .fldordertype = "1"
+
+                    ' set second name based on rules
+                    If formType = TypeOfForm.S_1040 AndAlso loopIndex = 2 Then
+                        .fldsecondname = txtTaxPayerName.Text.Trim() & " ROA"
+                    ElseIf kvp.Key = "ROA" Then
+                        .fldsecondname = txtTaxPayerName.Text.Trim() & " ROA"
+                    ElseIf kvp.Key = "AT" Then
+                        .fldsecondname = txtTaxPayerName.Text.Trim() & " AT"
+                    Else
+                        .fldsecondname = txtTaxPayerName.Text.Trim()
+                    End If
+
+                    ' save order
+                    OrderServices.CreateNewOrder(o)
+                    If o.fldordernumber < 1 Then
+                        lblMessage.Text = "Failed to save order. " & DataHelper.LastErrorMessage
+                    End If
+                    resultOrderIDs.Add(o.fldordernumber)
+                    loopIndex += 1
+                End With
             Next
-            For Each formType As TypeOfForm In typeOfForms
-                Dim listType As ListTypeCodeType = ListServices.GetListTypeFromFormType(formType)
-
-                Dim listID As Integer = ListServices.GetCurrentListID(listType)
-
-                .fldListid = listID
-                .fldlisttype = CInt(listType)
-                .FormType = formType
-                .fldordernumber = 0
-
-                OrderServices.CreateNewOrder(o)
-                If o.fldordernumber < 1 Then
-                    lblMessage.Text = "Failed to save order. " & DataHelper.LastErrorMessage
-                End If
-                resultOrderIDs.Add(o.fldordernumber)
-            Next
-        End With
+        Next
 
         Response.Redirect("~/Confirmation.aspx?form=" & 4506)
     End Sub
+
 
     Private Function SelectedIDs(ByVal chk As CheckBoxList) As Generic.List(Of Integer)
         Dim list As New Generic.List(Of Integer)
